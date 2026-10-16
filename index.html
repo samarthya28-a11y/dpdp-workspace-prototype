@@ -144,6 +144,10 @@ ins{background:var(--ins);text-decoration:none;padding:0 2px}del{background:var(
 .locked{border:1.5px solid var(--green);background:var(--green-bg);border-radius:6px;padding:14px 16px}
 .note{background:var(--mist);border-radius:6px;padding:10px 12px;font-size:.88rem}
 .sep{display:flex;gap:10px;align-items:center}
+.how{grid-column:2/4;font-size:.9rem;color:var(--muted)}
+.howto h3{margin-top:16px;font-size:1rem}
+.steps{margin:6px 0 0;padding-left:1.2em;display:flex;flex-direction:column;gap:8px}
+.exm{margin-top:6px;padding:10px 12px;background:var(--mist);border-radius:4px;font-size:.95rem}
 .docgrid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;align-items:start}
 @media(max-width:900px){.docgrid{grid-template-columns:1fr}}
 .paper{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:26px max(20px,3vw);min-width:0}
@@ -349,7 +353,7 @@ function vStartup(){
    <div class="cols2" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
    ${grp.map(([h,t,sub])=>{const L=d.I.filter(i=>i.h===h);return `<div class="hz"><div><h3>${t}</h3><span class="sm mut">${sub}</span></div>${L.map(i=>`
      <button class="item ${s.done[i.id]?'done':''}" data-a="open" data-v="${e(i.id)}"><span class="box" aria-hidden="true">${s.done[i.id]?'✓':''}</span>
-      <span class="tt" style="font-weight:600">${e(i.title)}</span><span class="chip c-mut">${s.done[i.id]?'Done':'To do'}</span>
+      <span class="tt" style="font-weight:600">${e(i.title)}</span><span class="chip c-mut">${s.done[i.id]?'Done':'To do'}</span>${hint(i)}
       <span class="meta"><span class="chip c-river">${e(i.theme)}</span><span class="chip c-mut">${e(s.owner[i.id]||i.owner)}</span>${i.scope?`<span class="chip c-river">${e(i.scope)}</span>`:''}${i.assumed?'<span class="chip c-amber">Assumed</span>':''}</span></button>`).join('')}</div>`}).join('')}
    </div></div>`;
 }
@@ -359,13 +363,204 @@ function drawer(){
   return `<div class="drawer" data-a="closedrawer"><div class="panel" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" data-stop>
    <div class="row" style="justify-content:space-between"><span class="chip c-river">${e(i.theme)}</span><button class="ghost" data-a="closedrawer">Close</button></div>
    <h2 id="drawerTitle" style="font-size:1.3rem">${e(i.title)}</h2><p>${e(i.why)}</p>
-   <dl class="dl"><dt>Do this</dt><dd><ol style="margin:0;padding-left:1.1em">${i.steps.map(x=>`<li>${e(x)}</li>`).join('')}</ol></dd>
+   ${stepsHtml(i)}<dl class="dl">
     <dt>Owner</dt><dd><select id="ownSel" data-a="owner" aria-label="Owner">${['Founder','Ops lead','Tech lead','HR / Ops'].map(o=>`<option ${(s.owner[i.id]||i.owner)===o?'selected':''}>${o}</option>`).join('')}</select></dd>
     <dt>Keep as proof</dt><dd>${e(i.ev)}</dd></dl>
    ${i.assumed?'<div class="note">You answered "Not sure", so we assumed the careful answer. Check this one.</div>':''}
-   <div class="row"><button class="btn pri" data-a="mark" data-v="${e(i.id)}">${s.done[i.id]?'Mark as not done':'Mark done'}</button><button class="btn" data-a="toast" data-v="Evidence upload is not part of this prototype">Attach evidence</button></div>
+   <div class="row"><button class="btn pri" data-a="mark" data-v="${e(i.id)}">${s.done[i.id]?'Mark as not done':'Mark done'}</button>${docBtn(i)}<button class="btn" data-a="toast" data-v="Evidence upload is not part of this prototype">Attach evidence</button></div>
    <p class="sm mut">Guidance as of ${AS_OF}. Not legal advice.</p></div></div>`;
 }
+
+/* ---------- detailed how-to steps for each plan item ---------- */
+const DETAIL={
+"Publish a privacy notice where you collect data":{t:"1 to 2 hours",doc:"notice",how:[
+ ["Open the draft","Go to Documents and open the Privacy notice. The tool has already filled it from your answers."],
+ ["Fix every highlighted gap","Add your business name, a contact email and your retention periods. Highlighted text means the tool could not know it."],
+ ["Check it against reality","Read each line and ask: do we really do this? Remove anything untrue. Add any tool or purpose that is missing."],
+ ["Ask for a review","Use Request review so your mentor or a lawyer can comment before you publish."],
+ ["Publish it where people share details","Put a link on checkout, signup forms, your app's signup screen and the website footer. People should see it before they give details."],
+ ["Save proof","Take a dated screenshot of each place the link appears. Save the final text with a version number and date."]],
+ ex:"Under a signup button: We use your details to run your account and deliver your orders. Read our privacy notice. [link]",
+ no:["Copying another company's notice word for word.","Linking it only in the footer, not where people share details.","Forgetting to update it when you add a new tool."]},
+"Ask for clear consent, one purpose at a time":{t:"2 to 3 hours",doc:"consent",how:[
+ ["List your reasons","Write down every reason you use customer data, for example orders, support and offers. Each reason is a purpose."],
+ ["Give marketing its own box","Use a separate, unticked box for offers and updates. Do not bundle it with placing an order."],
+ ["Use the draft wording","Copy the lines from Documents, Consent copy, and place them next to each box."],
+ ["Make stopping easy","Add an unsubscribe link to every message, and a way to switch it off in account settings."],
+ ["Record each yes","Keep who agreed, when, the exact text version shown and where. A spreadsheet is a start. Your form or CRM may keep it for you."],
+ ["Test it","Sign up yourself with the box unticked and check that no marketing message arrives."]],
+ ex:"[ ] Yes, send me offers and updates by WhatsApp and email. I can stop at any time using the link in a message.",
+ no:["Pre-ticked boxes.","One box covering everything.","No record of which text people saw.","Asking your lawyer nothing about order data: the draft flags this question, so ask it."]},
+"Name a contact for complaints and requests":{t:"About 1 hour",doc:"notice",how:[
+ ["Pick a person","Choose a named role such as Ops lead, not just an inbox nobody owns. Name a backup for holidays."],
+ ["Create a shared mailbox","For example privacy@yourcompany. Send a test message to make sure it arrives."],
+ ["Choose a reply time you can keep","Pick a number of days you can really meet. Put it in Your details in the Documents studio."],
+ ["Publish the contact","Add the name or role and email to your privacy notice and your Contact page."],
+ ["Set up a simple request log","A sheet with: date received, who asked, what they asked, date replied, what you did."],
+ ["Test the whole route","Send yourself a request, log it and reply within your promised time."]],
+ ex:"Questions about your data? Write to privacy@yourcompany. We reply within 15 days.",
+ no:["Using a personal email address.","Promising a reply time you cannot meet.","Having no log, so you cannot show what you did."]},
+"Write a one-page breach checklist":{t:"About 1 hour",doc:"",how:[
+ ["Name who leads","Write the lead and a backup, with phone numbers. Everyone on the team should know who to tell."],
+ ["Describe what counts as a leak","Examples: a lost laptop, an email sent to the wrong person, a hacked account, a vendor telling you they were breached."],
+ ["Write the first-hour steps","Stop the leak first: change passwords, remove access, switch off the affected tool. Then take screenshots and save logs before anything is deleted."],
+ ["Write who you call","Your lawyer, the vendor involved, your mentor, and whoever manages your hosting. Keep numbers in one place."],
+ ["Create an incident log","One page with: time found, what happened, whose data, what you did, who you told, when."],
+ ["Ask your lawyer who else must be told, and by when","Do not guess deadlines or recipients. Get them in writing and add them to the checklist."],
+ ["Run a 15-minute drill","Pretend a laptop is lost and walk through the checklist once. Fix what is unclear."]],
+ ex:"If a device or account is lost or hacked: 1. Tell [lead] straight away. 2. Lock the account. 3. Start the incident log.",
+ no:["Waiting to be sure before telling anyone.","Deleting evidence while cleaning up.","Having the checklist only in one person's head."]},
+"Get a parent's or guardian's consent for under-18s":{t:"2 to 4 hours",doc:"consent",how:[
+ ["Decide whether you need under-18 users","If you can avoid collecting children's data, that is the simplest route."],
+ ["Ask for age at signup","Add an age or date-of-birth step before any other details."],
+ ["Add a parent or guardian step","For under-18s, ask for a parent or guardian's contact and agreement before you collect anything else."],
+ ["Ask your lawyer what checks are enough","How a parent's identity must be confirmed is a legal question. Do not guess."],
+ ["Switch off tracking and ads for child accounts","Turn off pixels, retargeting and personalised offers for these accounts."],
+ ["Keep records","Store who agreed for each child, when, and the text shown."]],
+ ex:"Are you under 18? We will ask a parent or guardian to agree before you continue.",
+ no:["Asking age after collecting other details.","Leaving tracking tools on for child accounts."]},
+"Talk to a lawyer before you rely on this plan":{t:"1 to 2 weeks to arrange",doc:"",how:[
+ ["Use Request review","Share only your plan and draft documents, not customer data."],
+ ["Prepare a one-page brief","Say what your business does, what data you hold, roughly how many people, which vendors, and what worries you."],
+ ["Ask specific questions","Do stricter duties apply to us? What do we need for children's data or automated decisions? What should we do first?"],
+ ["Write down the answers","Save the reply and update your plan. Mark steps the lawyer changed."],
+ ["Book a follow-up","Ask when to come back, for example after a new product launch."]],
+ ex:"We hold about 80,000 customer records including health information. Please advise whether we need any extra steps.",
+ no:["Sending customer data to the lawyer instead of a description.","Treating the tool's flag as the answer."]},
+"List every vendor and check their data terms":{t:"2 to 3 hours",doc:"vendors",how:[
+ ["List every tool","Check your payments, invoices, email, ads and cloud accounts. If you pay for it or log in to it, list it."],
+ ["Write what data each one sees","Names, phones, addresses, payment details, browsing data."],
+ ["Find each vendor's data terms","Search their site for Privacy, Data Processing or Trust. Save the link and the date."],
+ ["Find where they store data","Look in settings or their documentation. Note the country."],
+ ["Save a breach contact","Find who to contact at the vendor if something goes wrong."],
+ ["Ask where terms are missing","Email support for a data processing agreement or equivalent. Save the reply."],
+ ["Keep the list alive","Add every new tool before you start using it."]],
+ ex:"Payment gateway | payment details, name, phone | terms checked 12 Oct | data in India | support contact saved",
+ no:["Forgetting free tools and browser plug-ins.","Not saving the date you checked the terms."]},
+"Remove details you do not need":{t:"1 to 2 hours",doc:"",how:[
+ ["List every form field","Include signup, checkout, support forms and any spreadsheets."],
+ ["Ask two questions for each","Do we use it? What for? If no clear answer, it is a candidate to remove."],
+ ["Remove or make it optional","Take unused fields off the form. Make useful but unnecessary ones optional."],
+ ["Check what you already hold","Look for old data you collected but never use. Check retention periods before deleting."],
+ ["Make it a habit","Repeat this check whenever you add a feature or form."]],
+ ex:"Date of birth at checkout: not used for delivery. Remove it.",
+ no:["Keeping a field just in case.","Adding new fields without asking why."]},
+"Set how long you keep each kind of data":{t:"About 1 hour",doc:"retention",how:[
+ ["List your kinds of data","Orders, marketing leads, support chats, staff records, logs."],
+ ["Say why you keep each","If you cannot say why, you probably should not keep it."],
+ ["Choose how long","Ask your accountant about records you must keep. Pick the shortest period that works for the rest."],
+ ["Fill in the Retention table","Open Documents, Retention table. Edit the periods in Your details."],
+ ["Set up deletion","A monthly reminder is enough to start. Later, automate it."],
+ ["Test one deletion","Delete one old record end to end and check backups and vendor tools."]],
+ ex:"Marketing leads: keep 12 months from last contact, then delete.",
+ no:["Choosing periods without checking required record-keeping.","Forgetting that backups and vendors also hold copies."]},
+"Turn on ad and analytics tools only after consent":{t:"About 2 hours",doc:"consent",how:[
+ ["List your tracking tags","Pixels, analytics scripts, chat widgets. Your developer or tag manager shows them."],
+ ["Load them only after a yes","Configure each tag to fire only when the visitor accepts."],
+ ["Test with consent off","Open the site in a private window, say no, and check that no tracking requests are sent (browser developer tools, Network tab)."],
+ ["Test with consent on","Say yes and check the tag works."],
+ ["Write down what you did","Save a dated screenshot of the test."]],
+ ex:"Banner: We use analytics to improve the site. [Accept] [No thanks]",
+ no:["Tags loading before the banner appears.","A banner with no real No option."]},
+"Find out where your data is stored":{t:"About 1 hour",doc:"vendors",how:[
+ ["List where data lives","Your own servers, cloud accounts and each vendor."],
+ ["Find each region","Check settings or documentation for the country or region."],
+ ["Write it down","Add the country next to each vendor in your vendor checklist."],
+ ["Check the contract","Look for any terms about location or transfers."],
+ ["Ask your lawyer","Ask whether any restriction applies to you. Do not assume."]],
+ ex:"Cloud hosting: Mumbai region. Email tool: United States.",
+ no:["Assuming data is in India because the vendor has an Indian office."]},
+"Check who can open your data, every quarter":{t:"30 minutes each quarter",doc:"",how:[
+ ["Turn on two-step login","For email, cloud, admin tools, your online store and code hosting."],
+ ["List who can access what","One row per person and tool."],
+ ["Remove what is not needed","Take away access for people who left or no longer need it, and delete unused accounts."],
+ ["Use a password manager","Stop sharing passwords in chat or spreadsheets."],
+ ["Keep software updated","Update laptops, phones and plug-ins."],
+ ["Log the review","Write the date, who checked and what you changed."]],
+ ex:"Q4 review 5 Oct: removed 2 former interns, added two-step login to the store admin.",
+ no:["Shared logins with no way to tell who did what.","Skipping the review when busy."]},
+"Re-read your notice and vendor list every 6 months":{t:"30 minutes, twice a year",doc:"notice",how:[
+ ["Set a calendar reminder","Twice a year, plus after any big launch."],
+ ["Compare notice to practice","Do you collect anything new? Use any new tool?"],
+ ["Check vendors","Any new terms or locations?"],
+ ["Re-run the assessment","Change answers here and read the updated plan."],
+ ["Save a dated record","Note the date, what you checked and what changed."]],
+ ex:"Review 15 Apr: added a new courier, updated notice v3.",
+ no:["Treating the notice as finished once published."]},
+"Answer data requests on time":{t:"15 minutes per request, 1 hour to set up",doc:"notice",how:[
+ ["Use one inbox","Send every request to the contact in your notice."],
+ ["Log it the same day","Date, who, what they asked."],
+ ["Check who is asking","Confirm it is the person the data is about, using something you already hold."],
+ ["Find the data","Check each tool and vendor that may hold it."],
+ ["Reply within your promised time","Give, correct or delete the data as asked, or say clearly why you cannot."],
+ ["Close the log","Record what you did and when."]],
+ ex:"Hello, we have deleted your account data from our systems as requested on 3 Nov.",
+ no:["Forgetting vendors' copies.","Missing your own promised deadline."]},
+"Get a written contract with each client":{t:"1 to 2 weeks with clients",doc:"dpa",how:[
+ ["List your clients","Every business whose customers' data you handle."],
+ ["Ask for their agreement","Many clients have their own data processing agreement. If not, propose one."],
+ ["Use the checklist","Open Documents, Client contract checklist, and tick each term the contract covers."],
+ ["Get a lawyer to look","Especially at liability and breach terms."],
+ ["Sign and file","Keep signed copies in one place."]],
+ ex:"Client: ABC Retail | agreement signed 2 Nov | covers purpose, security, breach, deletion",
+ no:["Working on a handshake.","Accepting terms you have not read."]},
+"Use client data only as each contract says":{t:"About 1 hour",doc:"dpa",how:[
+ ["Write down allowed uses per client","From each contract, in one line."],
+ ["Separate client data","Keep it apart from your own data and other clients' data."],
+ ["Block other uses","No using client data for your own marketing or product training unless the client agrees in writing."],
+ ["Brief your team","One short note on what they may and may not do."],
+ ["Ask before exceptions","If something new comes up, ask the client and save the reply."]],
+ ex:"Client A: send order updates only. No marketing.",
+ no:["Reusing a client's customer list for your own campaigns."]},
+"Tell clients fast if their data leaks":{t:"About 1 hour",doc:"dpa",how:[
+ ["Agree a notice time in each contract","Write the number of hours or days in the contract."],
+ ["Keep a contact for every client","A named person and a phone number."],
+ ["Write a one-page checklist","Who leads, first-hour steps, who calls the clients."],
+ ["Ask your lawyer about your own duties","Do not guess deadlines."],
+ ["Run a drill","Walk through it once."]],
+ ex:"If we find a leak affecting your customers, we will tell you within [time] with what we know.",
+ no:["Waiting until you know everything before telling the client."]},
+"List the vendors that touch client data":{t:"About 2 hours",doc:"vendors",how:[
+ ["List every tool that stores or sees client data","Hosting, email, support, analytics."],
+ ["Note what client data each sees","And where it is stored."],
+ ["Check each client contract","Does it let you use sub-vendors? Must you tell the client?"],
+ ["Tell clients where required","Send a short list and save the reply."],
+ ["Use similar data terms with each vendor","Ask for their agreement."]],
+ ex:"Hosting provider | stores client databases | region: Mumbai | disclosed to ABC Retail",
+ no:["Adding a new tool without checking client contracts."]},
+"Return or delete client data when a contract ends":{t:"About 1 hour",doc:"",how:[
+ ["Write your end-of-contract steps","Export or return data, then delete it from every system."],
+ ["Set a time limit","Use the period in the contract."],
+ ["Include backups and vendors","Ask vendors to delete too."],
+ ["Confirm in writing","Send the client a short deletion note."],
+ ["Keep a record","Date, what was deleted, where."]],
+ ex:"We have returned and deleted all data for ABC Retail on 30 Nov.",
+ no:["Keeping data in a backup folder indefinitely."]},
+"Find out where client data is stored":{t:"About 1 hour",doc:"vendors",how:[
+ ["List each tool and its region","Check settings or documentation."],
+ ["Compare with each client contract","Some limit where data may go."],
+ ["Write it down","Add regions to your sub-vendor checklist."],
+ ["Ask your lawyer if unsure","Do not assume."]],
+ ex:"Backup storage: Singapore. Check against client terms.",
+ no:["Assuming the default region is fine."]},
+"Have a lawyer check your client contracts":{t:"1 to 2 weeks",doc:"dpa",how:[
+ ["Gather your contracts","Include terms and conditions and any data agreements."],
+ ["Use Request review","Share only the contracts."],
+ ["Ask specific questions","Who is responsible if a vendor of mine leaks data? Is my liability capped? What must I tell clients?"],
+ ["Update the contracts","Fix what the lawyer flags and save the new versions."]],
+ ex:"Please review our standard client agreement for data handling, breach notice and liability.",
+ no:["Signing client paper without reading the data clauses."]}
+};
+const hint=i=>{const x=DETAIL[i.title];return x?`<span class="how">First: ${e(x.how[0][0].toLowerCase())} · about ${e(x.t.toLowerCase().replace(/^about /,''))}</span>`:''};
+function stepsHtml(i){
+ const x=DETAIL[i.title];
+ if(!x)return `<dl class="dl"><dt>Do this</dt><dd><ol style="margin:0;padding-left:1.1em">${i.steps.map(y=>`<li>${e(y)}</li>`).join('')}</ol></dd></dl>`;
+ return `<div class="howto"><span class="chip c-mut">Time: ${e(x.t)}</span>
+  <h3>How to do it</h3><ol class="steps">${x.how.map(([a,b])=>`<li><b>${e(a)}.</b> ${e(b)}</li>`).join('')}</ol>
+  ${x.ex?`<h3>Example</h3><p class="exm">${e(x.ex)}</p>`:''}
+  ${x.no&&x.no.length?`<h3>Common mistakes</h3><ul class="steps">${x.no.map(y=>`<li>${e(y)}</li>`).join('')}</ul>`:''}</div>`;
+}
+function docBtn(i){const x=DETAIL[i.title];if(!x||!x.doc)return '';const L=docList().find(y=>y[0]===x.doc);return L?`<button class="btn" data-a="gotodoc" data-v="${x.doc}">Open ${e(L[1])}</button>`:''}
 
 /* ---------- documents studio ---------- */
 const ASSUME={role:'You are both a business with its own customers and a service for clients',details:'You hold sensitive details (health or ID)',volume:'You hold details of 50,000 to 10 lakh people',minors:'Some users are under 18',track:'You track people or show ads',abroad:'Data may leave India',auto:'You decide about people using software alone',vendors:'Some vendors may see data, so check each one',collect:'You collect personal details'};
@@ -658,6 +853,7 @@ document.addEventListener('click',ev=>{
    case 'closedrawer':s.open=null;render();restoreFocus();return;
    case 'mark':s.done[v]=!s.done[v];break;
    case 'docs':s.step='docs';window.scrollTo(0,0);break;
+   case 'gotodoc':s.open=null;s.doc.active=v;s.step='docs';window.scrollTo(0,0);break;
    case 'backplan':s.step='plan';break;
    case 'dtab':s.doc.active=v;break;
    case 'vchk':s.doc.vchk[v]=!s.doc.vchk[v];break;
