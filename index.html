@@ -1,3 +1,8 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DPDP Workspace Prototype</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Hind:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -152,7 +157,10 @@ mark{background:var(--gold);color:var(--on-gold);padding:0 4px;border-radius:2px
 .fld{display:flex;flex-direction:column;gap:3px;font:500 .7rem var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .fld input{font:400 .95rem var(--body);text-transform:none;letter-spacing:0;color:var(--ink);width:100%}
 .fld small{font:400 .78rem var(--body);text-transform:none;letter-spacing:0}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 </style>
+</head>
+<body>
 
 <div class="bar">
   <div class="wrap">
@@ -165,9 +173,9 @@ mark{background:var(--gold);color:var(--on-gold);padding:0 4px;border-radius:2px
       <div><b id="bName">Setu</b><small id="bBy">by AWI</small></div>
     </div>
     <div class="tabs" role="tablist" aria-label="Choose a workspace">
-      <button class="tab" role="tab" data-a="tab" data-v="startup">Startup</button>
-      <button class="tab" role="tab" data-a="tab" data-v="incubator">Incubator</button>
-      <button class="tab" role="tab" data-a="tab" data-v="law">Law firm</button>
+      <button class="tab" role="tab" id="tab-startup" data-a="tab" data-v="startup">Startup</button>
+      <button class="tab" role="tab" id="tab-incubator" data-a="tab" data-v="incubator">Incubator</button>
+      <button class="tab" role="tab" id="tab-law" data-a="tab" data-v="law">Law firm</button>
     </div>
     <span class="sp"></span>
     <span class="proto">Prototype · sample data</span>
@@ -220,7 +228,21 @@ const QS=[
 const sens=a=>(a.details||[]).some(x=>x==='health'||x==='id'||x==='ns')||a.minors==='yes'||a.minors==='ns';
 const qList=a=>QS.filter(q=>(q.id==='biz'||q.id==='collect'||a.collect!=='no')&&(!q.show||q.show(a))&&!(a.role==='others'&&['minors','track','auto','have'].includes(q.id)));
 const ns=(a,k)=>a[k]==='ns'||(Array.isArray(a[k])&&a[k].includes('ns'));
-function derive(a){
+/* Drop answers for questions that are not currently visible (e.g. after Change answers). */
+function pruneAns(a){
+  let cur=Object.assign({},a);
+  for(let n=0;n<8;n++){
+    const ids=new Set(qList(cur).map(q=>q.id));
+    const next={};
+    for(const k of Object.keys(cur)) if(ids.has(k)) next[k]=cur[k];
+    const same=Object.keys(cur).length===Object.keys(next).length&&Object.keys(cur).every(k=>ids.has(k));
+    cur=next;
+    if(same)break;
+  }
+  return cur;
+}
+function derive(raw){
+  const a=pruneAns(raw);
   const has=a.have||[], det=a.details||[], ven=(a.vendors||[]).filter(x=>x!=='ns');
   const collect=a.collect!=='no';
   const role=a.role==='others'?'processor':(a.role==='both'||a.role==='ns')?'both':'fiduciary';
@@ -334,9 +356,9 @@ function vStartup(){
 function drawer(){
   const s=S.st;if(!s.open)return '';
   const d=derive(s.ans),i=d.I.find(x=>x.id===s.open);if(!i)return '';
-  return `<div class="drawer" data-a="closedrawer"><div class="panel" role="dialog" aria-modal="true" aria-label="${e(i.title)}" data-stop>
+  return `<div class="drawer" data-a="closedrawer"><div class="panel" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" data-stop>
    <div class="row" style="justify-content:space-between"><span class="chip c-river">${e(i.theme)}</span><button class="ghost" data-a="closedrawer">Close</button></div>
-   <h2 style="font-size:1.3rem">${e(i.title)}</h2><p>${e(i.why)}</p>
+   <h2 id="drawerTitle" style="font-size:1.3rem">${e(i.title)}</h2><p>${e(i.why)}</p>
    <dl class="dl"><dt>Do this</dt><dd><ol style="margin:0;padding-left:1.1em">${i.steps.map(x=>`<li>${e(x)}</li>`).join('')}</ol></dd>
     <dt>Owner</dt><dd><select id="ownSel" data-a="owner" aria-label="Owner">${['Founder','Ops lead','Tech lead','HR / Ops'].map(o=>`<option ${(s.owner[i.id]||i.owner)===o?'selected':''}>${o}</option>`).join('')}</select></dd>
     <dt>Keep as proof</dt><dd>${e(i.ev)}</dd></dl>
@@ -353,7 +375,8 @@ function actDoc(){const L=docList(),d=S.st.doc;if(!L.some(x=>x[0]===d.active))d.
 const DET={contact:'your name, phone number, email and address',pay:'payment details (taken by our payment partner)',loc:'your location',id:'ID documents you give us',health:'health information you share',photo:'photos or voice recordings'};
 const VEN={pay:['Payment gateway','Payment details, name, phone'],crm:['CRM or email tool','Names, emails, purchase history'],cloud:['Cloud hosting','Everything you store with them'],courier:['Courier or delivery partner','Name, address, phone'],wa:['WhatsApp or SMS provider','Phone numbers and messages'],analytics:['Analytics or ad tools','Browsing behaviour, device data']};
 const FIELDS=[['biz','Business name',''],['email','Privacy contact email','Use a team mailbox, not a personal one'],['reply','Reply to requests within (days)','Pick a time you can keep'],['retOrders','Keep orders and invoices for','Example value. Ask your accountant'],['retMkt','Keep marketing leads for','Example value'],['retSupport','Keep support chats for','Example value'],['retStaff','Keep staff and candidate records for','Fill this in']];
-const F=(v,h)=>v&&String(v).trim()?String(v).trim():'[['+h+']]';
+const GAP_L='\uE000',GAP_R='\uE001';
+const F=(v,h)=>v&&String(v).trim()?String(v).trim():GAP_L+h+GAP_R;
 function genDoc(id){
  const s=S.st,a=s.ans,d=s.doc,biz=F(d.biz,'business name'),em=F(d.email,'contact email');
  const det=(a.details||[]).filter(x=>DET[x]).map(x=>DET[x]);
@@ -362,18 +385,18 @@ function genDoc(id){
  if(id==='notice'){
   B.push({t:'h1',x:'Privacy notice'},{t:'p',x:`${biz}. Last updated ${AS_OF}.`});
   B.push({t:'h',x:'Who we are'},{t:'p',x:`${biz} decides why and how your personal data is used. You can reach us at ${em}.`});
-  B.push({t:'h',x:'What we collect'},{t:'ul',x:det.length?det:['[[list the details you collect]]']});
+  B.push({t:'h',x:'What we collect'},{t:'ul',x:det.length?det:[GAP_L+'list the details you collect'+GAP_R]});
   B.push({t:'h',x:'Why we use it'},{t:'ul',x:['To take and deliver your orders and answer your questions.','To send you offers and updates, only if you agree.']});
   if(ven.length)B.push({t:'h',x:'Who we share it with'},{t:'p',x:`We share data with our ${ven.map(v=>VEN[v][0].toLowerCase()).join(', ')}. We ask them to protect it and use it only for our work.`});
-  if(a.track!=='no')B.push({t:'h',x:'Tracking tools'},{t:'p',x:'If you agree, we use tracking tools such as advertising pixels or analytics to see how our site is used. [[Check that people can say no and still use your site]]'});
+  if(a.track!=='no')B.push({t:'h',x:'Tracking tools'},{t:'p',x:'If you agree, we use tracking tools such as advertising pixels or analytics to see how our site is used. '+GAP_L+'Check that people can say no and still use your site'+GAP_R});
   if(a.minors!=='no')B.push({t:'h',x:'Children'},{t:'p',x:'We ask a parent or guardian to agree before we collect details of anyone under 18. We do not track children or show them targeted ads.'});
-  if(a.abroad!=='no')B.push({t:'h',x:'Data outside India'},{t:'p',x:'Some of our service providers may store data outside India. [[Name the countries once you know them]]'});
+  if(a.abroad!=='no')B.push({t:'h',x:'Data outside India'},{t:'p',x:'Some of our service providers may store data outside India. '+GAP_L+'Name the countries once you know them'+GAP_R});
   B.push({t:'h',x:'How long we keep it'},{t:'ul',x:[`Orders and invoices: ${F(d.retOrders,'period')}`,`Marketing leads: ${F(d.retMkt,'period')}`,`Support chats: ${F(d.retSupport,'period')}`]});
   B.push({t:'h',x:'Your rights'},{t:'p',x:`You can ask us to show you your data, correct it, delete it, or stop using it for a purpose you agreed to. Write to ${em}. We will reply within ${F(d.reply,'days')} days.`},{t:'p',x:'If you are not happy with our reply, you can complain to the Data Protection Board of India.'});
  }
  if(id==='consent'){
   B.push({t:'h1',x:'Consent copy'},{t:'p',x:'Use these texts on your forms. Never pre-tick a box.'});
-  B.push({t:'h',x:'Order and account signup (notice)'},{t:'p',x:`We will use your name, phone number and address to deliver your order and send order updates. Read our privacy notice: [[link to your notice]].`},{t:'p',x:'[[Ask your lawyer whether order data needs a tick-box or only this notice]]'});
+  B.push({t:'h',x:'Order and account signup (notice)'},{t:'p',x:`We will use your name, phone number and address to deliver your order and send order updates. Read our privacy notice: ${GAP_L}link to your notice${GAP_R}.`},{t:'p',x:GAP_L+'Ask your lawyer whether order data needs a tick-box or only this notice'+GAP_R});
   B.push({t:'h',x:'Marketing (its own box)'},{t:'box',x:`☐ Yes, ${biz} may send me offers and updates by WhatsApp and email. I can stop this at any time using the link in a message or by writing to ${em}.`});
   if(a.track!=='no')B.push({t:'h',x:'Tracking tools'},{t:'box',x:'☐ Yes, you may use tracking tools to improve the site and show me relevant offers.'});
   if(a.minors!=='no')B.push({t:'h',x:'Under 18'},{t:'box',x:`☐ I am a parent or guardian and I agree to ${biz} using my child's details as described in the privacy notice.`});
@@ -381,46 +404,46 @@ function genDoc(id){
  }
  if(id==='dpa'){
   B.push({t:'h1',x:'Client contract checklist'},{t:'p',x:'Use this to check each client contract. It is a list of things to look for, not a contract. Ask a lawyer to review the contracts themselves.'});
-  const T=[['Purpose','The contract says what you may do with the client data, and nothing more.'],['Instructions','It says how the client gives instructions and how you record them.'],['Security','It names the safeguards you must keep.'],['Breach','It says how fast you tell the client, and who to contact.'],['Sub-vendors','It says whether you may use other vendors, and whether you must tell the client.'],['Return or delete','It says what happens to the data when the contract ends.'],['Proof','It says what the client may ask you to show.'],['Staff','Everyone who sees client data is bound to keep it confidential.'],['Law and disputes','[[ask your lawyer]]']];
+  const T=[['Purpose','The contract says what you may do with the client data, and nothing more.'],['Instructions','It says how the client gives instructions and how you record them.'],['Security','It names the safeguards you must keep.'],['Breach','It says how fast you tell the client, and who to contact.'],['Sub-vendors','It says whether you may use other vendors, and whether you must tell the client.'],['Return or delete','It says what happens to the data when the contract ends.'],['Proof','It says what the client may ask you to show.'],['Staff','Everyone who sees client data is bound to keep it confidential.'],['Law and disputes',GAP_L+'ask your lawyer'+GAP_R]];
   B.push({t:'tbl',head:['Term','What to check','Checked'],rows:T.map((r,i)=>[r[0],r[1],{k:'dpa:'+i}])});
   return B;
  }
  if(id==='retention'&&derive(a).role==='processor'){
   B.push({t:'h1',x:'Retention table'},{t:'p',x:'Keep client data only as long as each contract says. Check periods with your lawyer or accountant.'});
-  B.push({t:'tbl',head:['Data','Why we keep it','Keep for','Then'],rows:[['Client data','To provide the service','As each client contract says','Return or delete'],['Staff and candidate records','Hiring and payroll',F(d.retStaff,'period'),'Delete'],['Security logs','To protect the service','[[ask your lawyer]]','Delete']]});
+  B.push({t:'tbl',head:['Data','Why we keep it','Keep for','Then'],rows:[['Client data','To provide the service','As each client contract says','Return or delete'],['Staff and candidate records','Hiring and payroll',F(d.retStaff,'period'),'Delete'],['Security logs','To protect the service',GAP_L+'ask your lawyer'+GAP_R,'Delete']]});
   return B;
  }
  if(id==='retention'){
   B.push({t:'h1',x:'Retention table'},{t:'p',x:'Write down how long you keep each kind of data, and delete it when the time is up. Some laws require you to keep records for a set time, so check with your accountant or lawyer before you fix these.'});
-  B.push({t:'tbl',head:['Data','Why we keep it','Keep for','Then'],rows:[['Orders and invoices','To deliver orders and keep accounts',F(d.retOrders,'period'),'Delete or anonymise'],['Marketing leads','To send offers people agreed to',F(d.retMkt,'period'),'Delete'],['Support chats','To solve problems',F(d.retSupport,'period'),'Delete'],['Staff and candidate records','Hiring and payroll',F(d.retStaff,'period'),'Delete'],['Security logs','To protect the service','[[ask your lawyer]]','Delete']]});
+  B.push({t:'tbl',head:['Data','Why we keep it','Keep for','Then'],rows:[['Orders and invoices','To deliver orders and keep accounts',F(d.retOrders,'period'),'Delete or anonymise'],['Marketing leads','To send offers people agreed to',F(d.retMkt,'period'),'Delete'],['Support chats','To solve problems',F(d.retSupport,'period'),'Delete'],['Staff and candidate records','Hiring and payroll',F(d.retStaff,'period'),'Delete'],['Security logs','To protect the service',GAP_L+'ask your lawyer'+GAP_R,'Delete']]});
  }
  if(id==='vendors'){
   B.push({t:'h1',x:'Vendor checklist'},{t:'p',x:'You stay responsible for data your vendors handle for you. Check each one and keep the proof.'});
   if(ven.length)B.push({t:'tbl',head:['Vendor type','Data they may see','Terms checked','Data location known','Breach contact saved'],rows:ven.map(v=>[VEN[v][0],VEN[v][1],{k:v+':t'},{k:v+':l'},{k:v+':b'}])});
-  else B.push({t:'p',x:'[[You listed no vendors. Add the tools that see your data.]]'});
+  else B.push({t:'p',x:GAP_L+'You listed no vendors. Add the tools that see your data.'+GAP_R});
  }
  if(id==='staff'){
   B.push({t:'h1',x:'Notice for staff and job candidates'},{t:'p',x:`${biz}. Last updated ${AS_OF}.`});
   B.push({t:'h',x:'What we collect'},{t:'ul',x:['CV and contact details','ID and bank details for payroll (staff only)','Attendance and leave records']});
   B.push({t:'h',x:'Why we use it'},{t:'ul',x:['To hire and manage our team','To pay salaries and meet our legal duties']});
-  B.push({t:'h',x:'Who sees it'},{t:'p',x:'HR, your manager and our payroll provider. [[Add any other tool that holds HR data]]'});
-  B.push({t:'h',x:'How long we keep it'},{t:'p',x:`Staff records: ${F(d.retStaff,'period')}. Candidates we do not hire: [[period]].`});
+  B.push({t:'h',x:'Who sees it'},{t:'p',x:'HR, your manager and our payroll provider. '+GAP_L+'Add any other tool that holds HR data'+GAP_R});
+  B.push({t:'h',x:'How long we keep it'},{t:'p',x:`Staff records: ${F(d.retStaff,'period')}. Candidates we do not hire: ${GAP_L}period${GAP_R}.`});
   B.push({t:'h',x:'Questions'},{t:'p',x:`Write to ${em}. We will reply within ${F(d.reply,'days')} days.`});
  }
  return B;
 }
-const ph=x=>e(x).replace(/\[\[(.+?)\]\]/g,'<mark>$1</mark>');
+const ph=x=>e(x).replace(/\uE000(.+?)\uE001/g,'<mark>$1</mark>');
 function blocksHtml(B){
  const d=S.st.doc;
  return B.map(b=>b.t==='h1'?`<h2>${ph(b.x)}</h2>`:b.t==='h'?`<h3>${ph(b.x)}</h3>`:b.t==='p'?`<p>${ph(b.x)}</p>`:b.t==='box'?`<p class="cbox">${ph(b.x)}</p>`:b.t==='ul'?`<ul>${b.x.map(i=>`<li>${ph(i)}</li>`).join('')}</ul>`:
   `<div class="tbl"><table><thead><tr>${b.head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${b.rows.map(r=>`<tr>${r.map((c,ci)=>typeof c==='object'?`<td><input type="checkbox" data-a="vchk" data-v="${c.k}" ${d.vchk[c.k]?'checked':''} aria-label="${e(b.head[ci])} for ${e(r[0])}"></td>`:`<td>${ph(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`).join('');
 }
 function docText(id){
- return genDoc(id).map(b=>b.t==='ul'?b.x.map(i=>'- '+i).join('\n'):b.t==='tbl'?[b.head.join(' | '),...b.rows.map(r=>r.map(c=>typeof c==='object'?(S.st.doc.vchk[c.k]?'yes':'no'):c).join(' | '))].join('\n'):b.x).join('\n\n').replace(/\[\[(.+?)\]\]/g,'[$1]')+`\n\nDraft by ${B()}. Guidance as of ${AS_OF}. Not legal advice.`;
+ return genDoc(id).map(b=>b.t==='ul'?b.x.map(i=>'- '+i).join('\n'):b.t==='tbl'?[b.head.join(' | '),...b.rows.map(r=>r.map(c=>typeof c==='object'?(S.st.doc.vchk[c.k]?'yes':'no'):c).join(' | '))].join('\n'):b.x).join('\n\n').replace(/\uE000(.+?)\uE001/g,'[$1]')+`\n\nDraft by ${B()}. Guidance as of ${AS_OF}. Not legal advice.`;
 }
 function docPaper(){
  const d=S.st.doc,id=actDoc(),rv=d.rev[id];
- const gaps=(genDoc(id).map(b=>JSON.stringify(b)).join('').match(/\[\[/g)||[]).length;
+ const gaps=(genDoc(id).map(b=>JSON.stringify(b)).join('').match(/\uE000/g)||[]).length;
  return `<div class="ribbon">${rv?`<b>Review requested</b> from ${e(rv.to)} on ${rv.at}. It stays a draft until a lawyer approves it.`:`<b>Draft.</b> Written by software from your answers. A lawyer has not reviewed it.`}</div>
  <div id="docBody">${blocksHtml(genDoc(id))}</div>
  <p class="sm mut" style="margin-top:20px">Draft by ${e(B())}. Guidance as of ${AS_OF}. Not legal advice.</p>
@@ -474,8 +497,8 @@ function vInc(){
       <button class="btn sm" data-a="nudge">Send reminder</button>
       <select id="mSel" aria-label="Assign mentor">${['Assign mentor…',...MEN.slice(0,3)].map(m=>`<option>${m}</option>`).join('')}</select>
       <select id="cSel" aria-label="Assign counsel">${['Assign counsel…',...CNS.slice(0,2)].map(m=>`<option>${m}</option>`).join('')}</select></div>`:''}
-    <div class="tbl"><table><thead><tr><th style="width:36px"><span class="sr" hidden>Select</span></th><th>Startup</th><th>Readiness</th><th>Must-dos open</th><th>Overdue evidence</th><th>Review</th><th>Mentor</th><th>Counsel</th></tr></thead><tbody>
-     ${rows.map(r=>`<tr class="${I.open===r.i?'on':''}" data-a="srow" data-v="${r.i}"><td><input type="checkbox" aria-label="Select ${e(r.name)}" data-a="sel" data-v="${r.i}" ${I.sel.includes(r.i)?'checked':''}></td>
+    <div class="tbl"><table><thead><tr><th style="width:36px"><span class="sr">Select</span></th><th>Startup</th><th>Readiness</th><th>Must-dos open</th><th>Overdue evidence</th><th>Review</th><th>Mentor</th><th>Counsel</th></tr></thead><tbody>
+     ${rows.map(r=>`<tr class="${I.open===r.i?'on':''}" data-a="srow" data-v="${r.i}" tabindex="0"><td><input type="checkbox" aria-label="Select ${e(r.name)}" data-a="sel" data-v="${r.i}" ${I.sel.includes(r.i)?'checked':''}></td>
       <td><b>${e(r.name)}</b><div class="sm mut">${r.sec}${r.sdf?' · <span class="c-amber">counsel flag</span>':''}</div></td><td>${bandDot(r.band)}</td>
       <td class="mono">${r.tot?r.open+' / '+r.tot:'–'}</td><td class="mono ${r.over?'c-red':''}">${r.over||'–'}</td><td>${r.rev}</td><td>${e(r.men)}</td><td>${e(r.cns)}</td></tr>`).join('')}
     </tbody></table></div>
@@ -512,12 +535,13 @@ function vLaw(){
   if(L.view==='queue')return `<div class="col"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Review queue</span><h1 style="font-size:1.9rem">Across all associates</h1></div>
    <div class="filters"><button class="fbtn" aria-pressed="true">Mine</button><button class="fbtn" aria-pressed="false" data-a="toast" data-v="Team and Ready for partner tabs are not in this prototype">Team</button></div></div>
    <div class="tbl"><table><thead><tr><th>Matter</th><th>Client</th><th>Item</th><th>Associate</th><th>Age</th><th>Status</th></tr></thead><tbody>
-   ${MAT.map((m,i)=>`<tr data-a="openmatter" data-v="${i}"><td class="mono">${m[0]}</td><td><b>${m[1]}</b></td><td>${m[2]}</td><td>${m[3]}</td><td class="mono">${m[4]}</td><td><span class="chip ${m[5]==='Needs my review'?'c-amber':m[5]==='Ready for partner'?'c-river':'c-mut'}">${m[5]}</span></td></tr>`).join('')}
+   ${MAT.map((m,i)=>`<tr data-a="openmatter" data-v="${i}" tabindex="0"><td class="mono">${m[0]}</td><td><b>${m[1]}</b></td><td>${m[2]}</td><td>${m[3]}</td><td class="mono">${m[4]}</td><td><span class="chip ${m[5]==='Needs my review'?'c-amber':m[5]==='Ready for partner'?'c-river':'c-mut'}">${m[5]}</span></td></tr>`).join('')}
    </tbody></table></div><p class="sm mut">Click a row to open the workbench. Every row opens the same sample matter in this prototype.</p></div>`;
   const m=MAT[L.matter],idx=LST.indexOf(L.stage),roleP=L.role==='partner';
   const cms=L.comments.filter(c=>c.item===L.item);
+  const activeComments=()=>L.comments.filter(c=>c.item!=='resolved');
   let act='';
-  if(L.stage==='review')act=`<button class="btn" data-a="reqchanges" ${L.comments.length?'':'disabled'}>Request changes</button><button class="btn pri" data-a="recommend">Recommend for approval</button>`;
+  if(L.stage==='review')act=`<button class="btn" data-a="reqchanges" ${activeComments().length?'':'disabled'}>Request changes</button><button class="btn pri" data-a="recommend">Recommend for approval</button>`;
   else if(L.stage==='changes')act=`<span class="sm mut">Waiting on client</span><button class="btn" data-a="resubmit">Simulate client resubmit</button>`;
   else if(L.stage==='partner')act=roleP?`<button class="btn" data-a="reqchanges">Request changes</button><button class="btn pri" data-a="approve">Approve and lock…</button>`:`<button class="btn" disabled>Approve and lock</button><span class="sm mut">Only a Partner Approver can do this</span>`;
   else act=`<button class="btn pri" data-a="report">Generate report and evidence index</button>`;
@@ -535,7 +559,7 @@ function vLaw(){
     <div class="card">${centre(L)}</div>
     <div class="col"><div class="card"><h3>Risk flags</h3>${['Data may leave India (answer: Not sure)','Marketing consent mixed with order updates','Retention periods not stated'].map(f=>`<div class="flag"><span class="c-amber" aria-hidden="true">▲</span><span class="sm">${f}</span></div>`).join('')}</div>
      <div class="card"><h3>Comments on this item</h3>${cms.length?cms.map(c=>`<div class="cm" style="margin-top:8px"><b class="sm">${c.by}</b><br>${e(c.text)}</div>`).join(''):'<p class="sm mut" style="margin-top:6px">No comments yet.</p>'}</div>
-     <div class="card"><h3>Internal notes</h3><p class="sm mut" style="margin-top:6px">Visible to your firm only, never to the client.</p><textarea rows="2" id="inote" placeholder="Note to team" aria-label="Internal note"></textarea></div></div>
+     <div class="card"><h3>Internal notes</h3><p class="sm mut" style="margin-top:6px">Visible to your firm only, never to the client.</p><textarea rows="2" id="inote" placeholder="Note to team" aria-label="Internal note">${e(L.note||'')}</textarea></div></div>
    </div></div>`;
 }
 function centre(L){
@@ -551,27 +575,66 @@ function centre(L){
   return `<h3>${t[0]}</h3><p class="mut" style="margin-top:8px">${t[1]}</p><div class="note" style="margin-top:12px">Prototype shows the privacy notice in full. Other items follow the same pattern.</div>`;
 }
 
-/* ---------- modals ---------- */
-function modal(html){$('#layer').innerHTML=`<div class="modal" data-a="closemodal"><div class="box" role="dialog" aria-modal="true" data-stop>${html}</div></div>`;const f=$('#layer button, #layer textarea, #layer input');if(f)f.focus()}
-function closeModal(){$('#layer').innerHTML=''}
-function approveModal(){const L=S.law;modal(`<h2>Approve and lock version ${L.ver}</h2><p class="mut sm">This records your name, the date and the exact version. It is a professional sign-off, not an automatic certificate.</p>
+/* ---------- modals / focus ---------- */
+let modalFactory=null,focusReturn=null;
+function focusables(root){return [...root.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.offsetParent!==null||el===document.activeElement)}
+function trapFocus(ev){
+  if(ev.key!=='Tab')return;
+  const root=$('#layer .modal .box')||$('#layer .drawer .panel');if(!root)return;
+  const list=focusables(root);if(!list.length)return;
+  const first=list[0],last=list[list.length-1];
+  if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus()}
+  else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus()}
+}
+function rememberFocus(){focusReturn=document.activeElement}
+function restoreFocus(){const t=focusReturn;focusReturn=null;if(t&&typeof t.focus==='function')try{t.focus()}catch(_){}}
+function modal(htmlOrFn){
+  rememberFocus();
+  modalFactory=typeof htmlOrFn==='function'?htmlOrFn:null;
+  const html=typeof htmlOrFn==='function'?htmlOrFn():htmlOrFn;
+  $('#layer').innerHTML=`<div class="modal" data-a="closemodal"><div class="box" role="dialog" aria-modal="true" data-stop>${html}</div></div>`;
+  const f=focusables($('#layer .box'))[0];if(f)f.focus();
+}
+function closeModal(){modalFactory=null;$('#layer').innerHTML='';restoreFocus()}
+function refreshModal(){
+  if(!modalFactory||!$('#layer .modal'))return;
+  const keep=document.activeElement&&document.activeElement.id;
+  $('#layer .box').innerHTML=modalFactory();
+  if(keep){const el=document.getElementById(keep);if(el)el.focus()}
+}
+function approveModal(){modal(()=>{const L=S.law;return `<h2>Approve and lock version ${L.ver}</h2><p class="mut sm">This records your name, the date and the exact version. It is a professional sign-off, not an automatic certificate.</p>
  <label class="sm">Sign-off statement<textarea id="stmt" rows="4">I have reviewed version ${L.ver} of this document for the scope stated in the engagement. This approval is given by me as professional advice for this client only, subject to the stated limitations.</textarea></label>
  <label class="sm">Type your full name to confirm<input type="text" id="signer" placeholder="Arjun Mehta" style="width:100%"></label>
- <div class="row"><button class="btn pri" data-a="confirmlock">Approve and lock</button><button class="btn" data-a="closemodal">Cancel</button></div>`)}
-function reportModal(){const L=S.law,m=MAT[L.matter];modal(`<span class="eyebrow">Audit report outline</span><h2>${m[1]}: Readiness report</h2>
+ <div class="row"><button class="btn pri" data-a="confirmlock">Approve and lock</button><button class="btn" data-a="closemodal">Cancel</button></div>`})}
+function reportModal(){modal(()=>{const L=S.law,m=MAT[L.matter];return `<span class="eyebrow">Audit report outline</span><h2>${m[1]}: Readiness report</h2>
  <ol class="sm" style="margin:0;padding-left:1.2em;line-height:1.7"><li>Cover (client, matter ${m[0]}, version v${L.ver}, hash ${L.lock?L.lock.hash:''})</li><li>Scope and basis</li><li>Disclaimer and reliance</li><li>Executive summary: top findings</li><li>Role and risk analysis</li><li>Findings by theme (3 findings carried over from review)</li><li>Documents reviewed</li><li>Remediation plan</li><li>Evidence index</li><li>Sign-off block</li></ol>
  <h3>Evidence index</h3><div class="tbl"><table style="min-width:0"><thead><tr><th>Item</th><th>Received</th><th>Linked finding</th></tr></thead><tbody><tr><td>Notice screenshot</td><td>10 Nov</td><td>F1 Notice</td></tr><tr><td>Vendor list</td><td>12 Nov</td><td>F3 Vendors</td></tr><tr><td>Consent log sample</td><td><span class="c-red">Missing</span></td><td>F2 Consent</td></tr></tbody></table></div>
- <p class="sm mut">Not a certification. Guidance as of ${AS_OF}.</p><div class="row"><button class="btn pri" data-a="closemodal">Close</button></div>`)}
+ <p class="sm mut">Not a certification. Guidance as of ${AS_OF}.</p><div class="row"><button class="btn pri" data-a="closemodal">Close</button></div>`})}
 
 /* ---------- render ---------- */
 function render(){
-  document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.v===S.tab));
+  document.querySelectorAll('.tab').forEach(t=>{
+    const on=t.dataset.v===S.tab;
+    t.setAttribute('aria-selected',on);
+    t.tabIndex=on?0:-1;
+    t.setAttribute('aria-controls','view');
+  });
   $('#bName').textContent=B();$('#bBy').textContent=S.by.trim()?'by '+S.by.trim():'';
   document.title=B()+' Prototype';
-  $('#view').innerHTML=S.tab==='startup'?vStartup():S.tab==='incubator'?vInc():vLaw();
+  const view=$('#view');
+  view.setAttribute('role','tabpanel');
+  view.setAttribute('aria-labelledby','tab-'+S.tab);
+  view.innerHTML=S.tab==='startup'?vStartup():S.tab==='incubator'?vInc():vLaw();
   $('#disc').innerHTML=DISC();
+  const hadDrawer=!!$('#layer .drawer');
   const dr=S.tab==='startup'?drawer():'';
-  if(!$('#layer .modal'))$('#layer').innerHTML=dr;
+  if(!$('#layer .modal')){
+    $('#layer').innerHTML=dr;
+    if(dr&&!hadDrawer){
+      rememberFocus();
+      const f=focusables($('#layer .panel'))[0];if(f)f.focus();
+    }
+  }
 }
 function renderKeepModal(){const m=$('#layer .modal');const keep=m?m.outerHTML:null;render();if(keep)$('#layer').innerHTML=keep}
 
@@ -586,19 +649,19 @@ document.addEventListener('click',ev=>{
    case 'brandtoggle':{const p=$('#brandPanel');p.hidden=!p.hidden;el.setAttribute('aria-expanded',!p.hidden);return}
    case 'toast':return toast(v);
    case 'start':s.step='assess';s.qi=0;break;
-   case 'ans':{const q=qList(s.ans)[s.qi];if(q.type==='one')s.ans[q.id]=v;else{let c=(s.ans[q.id]||[]).slice();if(v==='ns'||v==='none')c=c.includes(v)?[]:[v];else{c=c.filter(x=>x!=='ns'&&x!=='none');c=c.includes(v)?c.filter(x=>x!==v):[...c,v]}s.ans[q.id]=c}break}
+   case 'ans':{const q=qList(s.ans)[s.qi];if(q.type==='one')s.ans[q.id]=v;else{let c=(s.ans[q.id]||[]).slice();if(v==='ns'||v==='none')c=c.includes(v)?[]:[v];else{c=c.filter(x=>x!=='ns'&&x!=='none');c=c.includes(v)?c.filter(x=>x!==v):[...c,v]}s.ans[q.id]=c}s.ans=pruneAns(s.ans);break}
    case 'next':{const L2=qList(s.ans);if(s.qi>=L2.length-1)s.step='summary';else s.qi++;break}
    case 'back':s.qi=Math.max(0,s.qi-1);break;
    case 'toplan':s.step='plan';break;
    case 'redo':s.step='assess';s.qi=0;break;
-   case 'open':s.open=v;break;
-   case 'closedrawer':s.open=null;break;
+   case 'open':rememberFocus();s.open=v;break;
+   case 'closedrawer':s.open=null;render();restoreFocus();return;
    case 'mark':s.done[v]=!s.done[v];break;
    case 'docs':s.step='docs';window.scrollTo(0,0);break;
    case 'backplan':s.step='plan';break;
    case 'dtab':s.doc.active=v;break;
    case 'vchk':s.doc.vchk[v]=!s.doc.vchk[v];break;
-   case 'reqrev':{const nm=docList().find(x=>x[0]===actDoc())[1];return modal(`<h2>Request a review of "${e(nm)}"</h2><p class="sm mut">Only this document is shared. You can stop sharing at any time.</p><label class="sm">Who should review it?<select id="revSel" style="width:100%;margin-top:4px"><option>Mentor at ${e(S.partner)} (comment only)</option><option>Panel counsel: Lexa &amp; Co.</option><option>A lawyer I choose (invite by email)</option></select></label><label class="sm" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="revOk"> I agree to share this draft with the reviewer.</label><div class="note sm">A reviewer can comment and ask for changes. Approval is a lawyer's decision, never this tool's.</div><div class="row"><button class="btn pri" data-a="sendrev">Send request</button><button class="btn" data-a="closemodal">Cancel</button></div>`)}
+   case 'reqrev':{return modal(()=>{const nm=docList().find(x=>x[0]===actDoc())[1];return `<h2>Request a review of "${e(nm)}"</h2><p class="sm mut">Only this document is shared. You can stop sharing at any time.</p><label class="sm">Who should review it?<select id="revSel" style="width:100%;margin-top:4px"><option>Mentor at ${e(S.partner)} (comment only)</option><option>Panel counsel: Lexa &amp; Co.</option><option>A lawyer I choose (invite by email)</option></select></label><label class="sm" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="revOk"> I agree to share this draft with the reviewer.</label><div class="note sm">A reviewer can comment and ask for changes. Approval is a lawyer's decision, never this tool's.</div><div class="row"><button class="btn pri" data-a="sendrev">Send request</button><button class="btn" data-a="closemodal">Cancel</button></div>`})}
    case 'sendrev':{if(!$('#revOk').checked)return toast('Tick the box to share this draft');const sel=$('#revSel');s.doc.rev[s.doc.active]={to:sel.options[sel.selectedIndex].text,at:'16 Oct 2026'};closeModal();toast('Review requested (demo)');break}
    case 'copydoc':{const txt=docText(s.doc.active);const pick=()=>{const r=document.createRange();r.selectNodeContents($('#docBody'));const g=getSelection();g.removeAllRanges();g.addRange(r);toast('Press Ctrl+C to copy the selected text')};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('Copied as plain text'),pick);else pick();return}
    case 'band':I.band=v;break;
@@ -607,9 +670,9 @@ document.addEventListener('click',ev=>{
    case 'nudge':I.sel.forEach(n=>I.nudged[n]=1);toast(I.sel.length+' reminder'+(I.sel.length>1?'s':'')+' queued (demo)');I.sel=[];break;
    case 'nudge1':I.nudged[+v]=1;toast('Reminder queued (demo)');break;
    case 'addnote':{const t=$('#mnote').value.trim();if(!t)return;(I.notes[+v]=I.notes[+v]||[]).push(t);break}
-   case 'invite':return modal(`<h2>Bulk invite startups</h2><p class="mut sm">Paste emails or upload a CSV with: name, email, company, stage.</p><textarea rows="4" aria-label="Emails">riya@kaveri.example\nkaran@dhun.example</textarea><div class="note sm"><b>Preview of the email</b><br>Subject: Get your startup DPDP-ready with ${e(S.partner)} (due 30 Nov)<br>Hi Riya, ${e(S.partner)} is helping every startup in Cohort 2026 get ready for India\'s data protection law. It takes about 10 minutes to get your first plan.<br><br><b>What ${e(S.partner)} can see:</b> only your progress, unless you choose to share more.<br>Powered by ${e(B())}${S.by.trim()?' by '+e(S.by.trim()):''}. Guidance, not legal advice.</div><div class="row"><button class="btn pri" data-a="sendinv">Send invites</button><button class="btn" data-a="closemodal">Cancel</button></div>`);
+   case 'invite':return modal(()=>`<h2>Bulk invite startups</h2><p class="mut sm">Paste emails or upload a CSV with: name, email, company, stage.</p><textarea rows="4" aria-label="Emails">riya@kaveri.example\nkaran@dhun.example</textarea><div class="note sm"><b>Preview of the email</b><br>Subject: Get your startup DPDP-ready with ${e(S.partner)} (due 30 Nov)<br>Hi Riya, ${e(S.partner)} is helping every startup in Cohort 2026 get ready for India\'s data protection law. It takes about 10 minutes to get your first plan.<br><br><b>What ${e(S.partner)} can see:</b> only your progress, unless you choose to share more.<br>Powered by ${e(B())}${S.by.trim()?' by '+e(S.by.trim()):''}. Guidance, not legal advice.</div><div class="row"><button class="btn pri" data-a="sendinv">Send invites</button><button class="btn" data-a="closemodal">Cancel</button></div>`);
    case 'sendinv':closeModal();return toast('2 invites queued (demo)');
-   case 'export':{const rows=SU.map(r=>[r.name,BL[r.band][0],r.open,r.over,r.rev,I.mentor[r.i]||r.men,I.counsel[r.i]||r.cns].join(',')).join('\n');return modal(`<h2>Cohort report preview</h2><p class="sm mut">PDF and CSV export. The report includes only progress data the startups agreed to share.</p><pre class="mono sm" style="margin:0;overflow-x:auto;background:var(--paper);padding:12px;border-radius:4px">startup,band,must_dos_open,overdue_evidence,review,mentor,counsel\n${e(rows)}</pre><p class="sm mut">Colour reflects checklist progress, not legal compliance status. Guidance as of ${AS_OF}.</p><div class="row"><button class="btn pri" data-a="closemodal">Close</button></div>`)}
+   case 'export':return modal(()=>{const rows=SU.map(r=>[r.name,BL[r.band][0],r.open,r.over,r.rev,S.inc.mentor[r.i]||r.men,S.inc.counsel[r.i]||r.cns].join(',')).join('\n');return `<h2>Cohort report preview</h2><p class="sm mut">PDF and CSV export. The report includes only progress data the startups agreed to share.</p><pre class="mono sm" style="margin:0;overflow-x:auto;background:var(--paper);padding:12px;border-radius:4px">startup,band,must_dos_open,overdue_evidence,review,mentor,counsel\n${e(rows)}</pre><p class="sm mut">Colour reflects checklist progress, not legal compliance status. Guidance as of ${AS_OF}.</p><div class="row"><button class="btn pri" data-a="closemodal">Close</button></div>`});
    case 'closemodal':closeModal();break;
    case 'lawq':L.view='queue';break;
    case 'openmatter':L.view='wb';L.matter=+v;break;
@@ -617,8 +680,8 @@ document.addEventListener('click',ev=>{
    case 'cmt':{const b=$('#cmtbox');b.innerHTML=`<div style="margin-top:12px"><textarea id="cmtext" rows="3" placeholder="Comment on this paragraph" aria-label="Comment"></textarea><div class="row" style="margin-top:8px"><button class="btn sm pri" data-a="savecmt" data-v="${v}">Save comment</button></div></div>`;$('#cmtext').focus();return}
    case 'savecmt':{const t=$('#cmtext').value.trim();if(!t)return;L.comments.push({item:'notice',p:v,text:t,by:L.role==='partner'?'Partner':'Associate'});break}
    case 'reqchanges':{
-     const draft=L.comments.length?L.comments.map((c,i)=>`${i+1}. ${c.text}`).join('\n'):'1. ';
-     return modal(`<h2>Request changes on Privacy notice v${L.ver}</h2><p class="sm mut">This goes to the client. It is a review comment, not an approval.</p><textarea id="chg" rows="6" aria-label="Note to client">Thanks, this is close. Before I can recommend approval:\n${e(draft)}\nResubmit when done. I will review again within 3 working days.</textarea><div class="note sm">Footer added automatically: "This is a review comment on a draft for this matter. It is not an approval."</div><div class="row"><button class="btn pri" data-a="sendchg">Send to client</button><button class="btn" data-a="closemodal">Cancel</button></div>`)}
+     return modal(()=>{const active=L.comments.filter(c=>c.item!=='resolved');const draft=active.length?active.map((c,i)=>`${i+1}. ${c.text}`).join('\n'):'1. ';
+     return `<h2>Request changes on Privacy notice v${L.ver}</h2><p class="sm mut">This goes to the client. It is a review comment, not an approval.</p><textarea id="chg" rows="6" aria-label="Note to client">Thanks, this is close. Before I can recommend approval:\n${e(draft)}\nResubmit when done. I will review again within 3 working days.</textarea><div class="note sm">Footer added automatically: "This is a review comment on a draft for this matter. It is not an approval."</div><div class="row"><button class="btn pri" data-a="sendchg">Send to client</button><button class="btn" data-a="closemodal">Cancel</button></div>`})}
    case 'sendchg':closeModal();L.stage='changes';toast('Changes requested sent to client');break;
    case 'resubmit':L.ver++;L.stage='review';L.comments=L.comments.map(c=>({...c,item:'resolved'}));toast('Client sent v'+L.ver);break;
    case 'recommend':L.stage='partner';toast('Sent to Partner Approver');break;
@@ -638,9 +701,42 @@ document.addEventListener('change',ev=>{
 });
 ['inName','inBy','inPartner'].forEach(id=>$('#'+id).addEventListener('input',x=>{
   const v=x.target.value;if(id==='inName')S.brand=v;else if(id==='inBy')S.by=v;else S.partner=v;
-  if(!$('#layer .modal'))render();else{$('#bName').textContent=B();$('#bBy').textContent=S.by.trim()?'by '+S.by.trim():''}
+  $('#bName').textContent=B();$('#bBy').textContent=S.by.trim()?'by '+S.by.trim():'';
+  document.title=B()+' Prototype';
+  if($('#layer .modal')&&modalFactory)refreshModal();
+  else if(!$('#layer .modal'))render();
 }));
-document.addEventListener('input',ev=>{const f=ev.target.dataset&&ev.target.dataset.f;if(!f)return;S.st.doc[f]=ev.target.value;const p=$('#docPaper');if(p)p.innerHTML=docPaper()});
-document.addEventListener('keydown',ev=>{if(ev.key==='Escape'){if($('#layer .modal'))closeModal();else if(S.st.open){S.st.open=null;render()}}});
+document.addEventListener('input',ev=>{
+  const t=ev.target;
+  if(t.id==='inote'){S.law.note=t.value;return}
+  const f=t.dataset&&t.dataset.f;if(!f)return;S.st.doc[f]=t.value;const p=$('#docPaper');if(p)p.innerHTML=docPaper();
+});
+document.addEventListener('keydown',ev=>{
+  trapFocus(ev);
+  if(ev.key==='Escape'){
+    if($('#layer .modal')){closeModal();return}
+    if(S.st.open){S.st.open=null;render();restoreFocus();return}
+  }
+  const tab=ev.target.closest&&ev.target.closest('[role="tab"]');
+  if(tab&&(ev.key==='ArrowRight'||ev.key==='ArrowLeft'||ev.key==='Home'||ev.key==='End')){
+    const tabs=[...document.querySelectorAll('.tab')];
+    let i=tabs.indexOf(tab);
+    if(ev.key==='ArrowRight')i=(i+1)%tabs.length;
+    else if(ev.key==='ArrowLeft')i=(i-1+tabs.length)%tabs.length;
+    else if(ev.key==='Home')i=0;
+    else if(ev.key==='End')i=tabs.length-1;
+    ev.preventDefault();
+    S.tab=tabs[i].dataset.v;render();tabs[i].focus();
+    return;
+  }
+  const row=ev.target.closest&&ev.target.closest('tr[data-a][tabindex]');
+  if(row&&(ev.key==='Enter'||ev.key===' ')){
+    if(ev.target.closest('input,button,select,textarea'))return;
+    ev.preventDefault();
+    row.click();
+  }
+});
 render();
 </script>
+</body>
+</html>
